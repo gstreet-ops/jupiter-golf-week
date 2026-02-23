@@ -151,6 +151,33 @@ input[type=number]{-moz-appearance:textfield}
 .pill .pc{font-size:13px;font-weight:800;font-family:'DM Mono',monospace}
 
 /* Notes */
+/* Dashboard */
+.dash{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:12px;box-shadow:var(--shadow)}
+.dash-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:#1a3a2a;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.dash-card{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:10px;text-align:center}
+.dash-card .dc-label{font-size:8px;letter-spacing:1.5px;color:var(--t3);font-weight:600;margin-bottom:2px}
+.dash-card .dc-val{font-size:20px;font-weight:800;font-family:'DM Mono',monospace}
+.dash-card .dc-sub{font-size:9px;color:var(--t3);margin-top:1px}
+.dash-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.dash-bar-label{font-size:11px;font-weight:600;min-width:80px;color:#555}
+.dash-bar-track{flex:1;height:22px;background:var(--s2);border-radius:6px;overflow:hidden;position:relative;border:1px solid var(--bd)}
+.dash-bar-fill{height:100%;border-radius:5px;transition:width .5s;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:10px;font-weight:700;color:#fff;min-width:30px}
+.dash-bar-par{position:absolute;height:100%;width:2px;background:#e63946;top:0;opacity:.6}
+.dash-h2h{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.dash-h2h-card{padding:8px;border-radius:8px;text-align:center;border:1px solid var(--bd)}
+.dash-h2h-card .hh-course{font-size:9px;letter-spacing:1px;font-weight:600;margin-bottom:4px}
+.dash-h2h-card .hh-val{font-size:16px;font-weight:800;font-family:'DM Mono',monospace}
+.dash-h2h-card .hh-sub{font-size:9px;color:var(--t3)}
+.dash-best{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.dash-best-row{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--s2);border-radius:8px;border:1px solid var(--bd)}
+.dash-best-row .br-icon{font-size:16px}
+.dash-best-row .br-label{font-size:11px;color:#555;flex:1}
+.dash-best-row .br-val{font-size:13px;font-weight:700;font-family:'DM Mono',monospace}
+.dash-section{margin-top:16px}
+.dash-section .ds-title{font-size:10px;letter-spacing:2px;color:var(--t3);font-weight:600;margin-bottom:8px}
+.dash-empty{text-align:center;padding:20px;color:var(--t3);font-size:12px}
+
 /* Save button */
 .save-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center}
 .save-btn{padding:10px 24px;border-radius:10px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;letter-spacing:.3px}
@@ -186,6 +213,7 @@ input[type=number]{-moz-appearance:textfield}
 <div class="hdcp-info">Enter handicap index — net scores auto-calculate per course slope.</div>
 </div>
 <div class="cards" id="landing-cards"></div>
+<div id="dashboard" style="max-width:500px;width:100%;margin:20px auto 0"></div>
 <div style="text-align:center;padding:30px 0 20px;font-size:9px;color:#bbb;letter-spacing:1px">JUPITER GOLF WEEK 2026</div>
 </div>
 </div>
@@ -462,6 +490,7 @@ ${netTotal?`<div class="cst"><span class="csl">NET</span><span class="csv" style
 <div class="cc-status" style="color:${scored===18?'#1a7a4a':scored>0?'#a07830':'var(--t3)'}">
 ${scored===18?'✓ Complete':scored>0?scored+'/18':'Ready'}
 </div></div></div>`}).join('');
+renderDashboard();
 }
 
 function showClub(k){
@@ -754,6 +783,182 @@ k==='bears'?'Tuesday looks like the best weather day of the week — clear, cool
 'Wednesday is shaping up beautifully — sunny all day with calm winds in the morning, building to only 5-8 mph by afternoon. At 80°F it\'ll be the warmest round of the week, which may firm up Medalist\'s already-challenging greens even further. Bring plenty of water — you\'ll want to stay hydrated on a 7,500-yard course.'
 }</p>
 </div>`;
+}
+
+function renderDashboard(){
+const el=document.getElementById('dashboard');
+const courses=['jupiter','bears','medalist'];
+const completed=courses.filter(k=>D[k].scores.filter(s=>s>0).length===18);
+
+if(completed.length===0){
+el.innerHTML=`<div class="dash"><div class="dash-title">📊 Trip Dashboard</div><div class="dash-empty">Complete a round to see your analytics</div></div>`;
+return;
+}
+
+// Aggregate stats
+const stats=courses.map(k=>{
+const c=C[k],d=D[k];
+const scores=d.scores;
+const done=scores.filter(s=>s>0).length;
+if(done===0)return null;
+const total=scores.reduce((a,b)=>a+b,0);
+const vs=total-c.par;
+const eagles=scores.filter((s,i)=>s>0&&s<=c.holes[i].p-2).length;
+const birdies=scores.filter((s,i)=>s>0&&s===c.holes[i].p-1).length;
+const pars=scores.filter((s,i)=>s>0&&s===c.holes[i].p).length;
+const bogeys=scores.filter((s,i)=>s>0&&s===c.holes[i].p+1).length;
+const doubles=scores.filter((s,i)=>s>0&&s>=c.holes[i].p+2).length;
+const p3=c.holes.map((h,i)=>h.p===3&&scores[i]>0?scores[i]:null).filter(Boolean);
+const p4=c.holes.map((h,i)=>h.p===4&&scores[i]>0?scores[i]:null).filter(Boolean);
+const p5=c.holes.map((h,i)=>h.p===5&&scores[i]>0?scores[i]:null).filter(Boolean);
+const avgP3=p3.length?(p3.reduce((a,b)=>a+b,0)/p3.length):0;
+const avgP4=p4.length?(p4.reduce((a,b)=>a+b,0)/p4.length):0;
+const avgP5=p5.length?(p5.reduce((a,b)=>a+b,0)/p5.length):0;
+const best=Math.min(...scores.filter(s=>s>0));
+const bestHole=scores.indexOf(best);
+const worst=Math.max(...scores);
+const worstHole=scores.indexOf(worst);
+const front=scores.slice(0,9).reduce((a,b)=>a+b,0);
+const back=scores.slice(9).reduce((a,b)=>a+b,0);
+const frontPar=c.holes.slice(0,9).reduce((s,h)=>s+h.p,0);
+const backPar=c.holes.slice(9).reduce((s,h)=>s+h.p,0);
+let netTotal=null;
+if(hdcp&&done===18){netTotal=0;scores.forEach((s,i)=>{netTotal+=netScore(s,c.slope,c.holes[i].h)});}
+return{k,name:c.short,accent:c.accent,par:c.par,total,vs,done,eagles,birdies,pars,bogeys,doubles,
+avgP3,avgP4,avgP5,best,bestHole:bestHole+1,worst,worstHole:worstHole+1,
+front,back,frontPar,backPar,netTotal,slope:c.slope};
+}).filter(Boolean);
+
+const allScored=stats.filter(s=>s.done===18);
+const totalStrokes=allScored.reduce((a,s)=>a+s.total,0);
+const totalPar=allScored.reduce((a,s)=>a+s.par,0);
+const totalVs=totalStrokes-totalPar;
+const totalBirdies=stats.reduce((a,s)=>a+s.birdies,0);
+const totalPars=stats.reduce((a,s)=>a+s.pars,0);
+const totalBogeys=stats.reduce((a,s)=>a+s.bogeys,0);
+const totalEagles=stats.reduce((a,s)=>a+s.eagles,0);
+const totalDoubles=stats.reduce((a,s)=>a+s.doubles,0);
+const holesPlayed=stats.reduce((a,s)=>a+s.done,0);
+
+// Best round
+const bestRound=allScored.length?allScored.reduce((a,b)=>a.vs<b.vs?a:b):null;
+
+let html=`<div class="dash">
+<div class="dash-title">📊 Trip Dashboard</div>`;
+
+// Summary cards
+html+=`<div class="dash-grid">
+<div class="dash-card"><div class="dc-label">TOTAL</div><div class="dc-val" style="color:#1a3a2a">${totalStrokes||'–'}</div><div class="dc-sub">${allScored.length?allScored.length+' round'+(allScored.length>1?'s':''):'–'}</div></div>
+<div class="dash-card"><div class="dc-label">VS PAR</div><div class="dc-val" style="color:${totalVs<=0?'#1a7a4a':'#b82e3a'}">${allScored.length?(totalVs>0?'+':'')+totalVs:'–'}</div><div class="dc-sub">${holesPlayed} holes</div></div>
+<div class="dash-card"><div class="dc-label">BEST</div><div class="dc-val" style="color:${bestRound?bestRound.accent:'#999'}">${bestRound?bestRound.total:'–'}</div><div class="dc-sub">${bestRound?bestRound.name:'–'}</div></div>
+</div>`;
+
+// Head to head bars — gross scores
+if(allScored.length>1){
+html+=`<div class="dash-section"><div class="ds-title">HEAD TO HEAD — GROSS</div>`;
+const maxScore=Math.max(...allScored.map(s=>s.total));
+allScored.forEach(s=>{
+const pct=Math.round((s.total/maxScore)*100);
+html+=`<div class="dash-bar-row">
+<div class="dash-bar-label" style="color:${s.accent}">${s.name}</div>
+<div class="dash-bar-track">
+<div class="dash-bar-fill" style="width:${pct}%;background:${s.accent}">${s.total}</div>
+<div class="dash-bar-par" style="left:${Math.round((s.par/maxScore)*100)}%" title="Par ${s.par}"></div>
+</div>
+</div>`;
+});
+html+=`</div>`;
+}
+
+// Net comparison if handicap set
+if(hdcp&&allScored.filter(s=>s.netTotal).length>1){
+html+=`<div class="dash-section"><div class="ds-title">HEAD TO HEAD — NET (HDCP ${hdcp})</div>`;
+const netScores=allScored.filter(s=>s.netTotal);
+const maxNet=Math.max(...netScores.map(s=>s.netTotal));
+netScores.forEach(s=>{
+const pct=Math.round((s.netTotal/maxNet)*100);
+const nv=s.netTotal-s.par;
+html+=`<div class="dash-bar-row">
+<div class="dash-bar-label" style="color:${s.accent}">${s.name}</div>
+<div class="dash-bar-track">
+<div class="dash-bar-fill" style="width:${pct}%;background:#1a7a4a">${s.netTotal} (${nv>0?'+':''}${nv})</div>
+<div class="dash-bar-par" style="left:${Math.round((s.par/maxNet)*100)}%" title="Par ${s.par}"></div>
+</div>
+</div>`;
+});
+html+=`</div>`;
+}
+
+// Scoring breakdown comparison
+html+=`<div class="dash-section"><div class="ds-title">SCORING BREAKDOWN</div>
+<div class="dash-h2h">`;
+stats.forEach(s=>{
+html+=`<div class="dash-h2h-card" style="background:${s.accent}08">
+<div class="hh-course" style="color:${s.accent}">${s.name}</div>
+<div style="display:flex;flex-direction:column;gap:2px;font-size:10px">
+${s.eagles?`<div style="color:#b8960a">🦅 ${s.eagles} eagle${s.eagles>1?'s':''}</div>`:''}
+<div style="color:#e63946">🐦 ${s.birdies} birdie${s.birdies!==1?'s':''}</div>
+<div style="color:#666">⛳ ${s.pars} par${s.pars!==1?'s':''}</div>
+<div style="color:#457b9d">📦 ${s.bogeys} bogey${s.bogeys!==1?'s':''}</div>
+${s.doubles?`<div style="color:#1d3557">💀 ${s.doubles} dbl+</div>`:''}
+</div>
+</div>`;
+});
+html+=`</div></div>`;
+
+// Par performance comparison
+html+=`<div class="dash-section"><div class="ds-title">AVG SCORE BY PAR</div>
+<div class="dash-h2h">`;
+stats.forEach(s=>{
+html+=`<div class="dash-h2h-card" style="background:${s.accent}08">
+<div class="hh-course" style="color:${s.accent}">${s.name}</div>
+<div style="font-size:10px;display:flex;flex-direction:column;gap:3px;margin-top:4px">
+<div>Par 3: <strong style="font-family:'DM Mono',monospace">${s.avgP3?s.avgP3.toFixed(1):'–'}</strong></div>
+<div>Par 4: <strong style="font-family:'DM Mono',monospace">${s.avgP4?s.avgP4.toFixed(1):'–'}</strong></div>
+<div>Par 5: <strong style="font-family:'DM Mono',monospace">${s.avgP5?s.avgP5.toFixed(1):'–'}</strong></div>
+</div>
+</div>`;
+});
+html+=`</div></div>`;
+
+// Front 9 vs Back 9
+html+=`<div class="dash-section"><div class="ds-title">FRONT 9 vs BACK 9</div>
+<div class="dash-h2h">`;
+allScored.forEach(s=>{
+const fv=s.front-s.frontPar;
+const bv=s.back-s.backPar;
+const better=fv<bv?'Front':'Back';
+html+=`<div class="dash-h2h-card" style="background:${s.accent}08">
+<div class="hh-course" style="color:${s.accent}">${s.name}</div>
+<div style="font-size:10px;margin-top:4px">
+<div>F: <strong style="font-family:'DM Mono',monospace">${s.front}</strong> <span style="color:${fv<=0?'#1a7a4a':'#b82e3a'}">(${fv>0?'+':''}${fv})</span></div>
+<div>B: <strong style="font-family:'DM Mono',monospace">${s.back}</strong> <span style="color:${bv<=0?'#1a7a4a':'#b82e3a'}">(${bv>0?'+':''}${bv})</span></div>
+<div style="color:var(--t3);margin-top:2px">Better: ${better}</div>
+</div>
+</div>`;
+});
+html+=`</div></div>`;
+
+// Highlights
+html+=`<div class="dash-section"><div class="ds-title">TRIP HIGHLIGHTS</div>
+<div class="dash-best">`;
+const allBestHoles=stats.map(s=>{
+const c=C[s.k];
+const bestIdx=D[s.k].scores.reduce((bi,sc,i,arr)=>sc>0&&(arr[bi]===0||sc-c.holes[i].p<arr[bi]-c.holes[bi].p)?i:bi,0);
+const bestSc=D[s.k].scores[bestIdx];
+const bestVsPar=bestSc-c.holes[bestIdx].p;
+return{course:s.name,accent:s.accent,hole:bestIdx+1,score:bestSc,par:c.holes[bestIdx].p,vs:bestVsPar};
+});
+const tripBest=allBestHoles.reduce((a,b)=>a.vs<b.vs?a:b);
+html+=`<div class="dash-best-row"><span class="br-icon">🏆</span><span class="br-label">Best Hole</span><span class="br-val" style="color:${tripBest.accent}">#${tripBest.hole} ${tripBest.course} — ${tripBest.score} (${tripBest.vs>0?'+':''}${tripBest.vs})</span></div>`;
+html+=`<div class="dash-best-row"><span class="br-icon">🐦</span><span class="br-label">Total Birdies+</span><span class="br-val" style="color:#e63946">${totalEagles+totalBirdies}</span></div>`;
+html+=`<div class="dash-best-row"><span class="br-icon">⛳</span><span class="br-label">Total Pars</span><span class="br-val">${totalPars}</span></div>`;
+html+=`<div class="dash-best-row"><span class="br-icon">📏</span><span class="br-label">Holes Played</span><span class="br-val">${holesPlayed} / 54</span></div>`;
+if(bestRound){html+=`<div class="dash-best-row"><span class="br-icon">🥇</span><span class="br-label">Best Round</span><span class="br-val" style="color:${bestRound.accent}">${bestRound.name} — ${bestRound.total} (${bestRound.vs>0?'+':''}${bestRound.vs})</span></div>`;}
+html+=`</div></div>`;
+
+html+=`</div>`;
+el.innerHTML=html;
 }
 
 init();
