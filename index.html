@@ -151,6 +151,19 @@ input[type=number]{-moz-appearance:textfield}
 .pill .pc{font-size:13px;font-weight:800;font-family:'DM Mono',monospace}
 
 /* Notes */
+/* Save button */
+.save-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center}
+.save-btn{padding:10px 24px;border-radius:10px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;letter-spacing:.3px}
+.save-btn.primary{background:#1a7a4a;color:#fff;box-shadow:0 2px 8px rgba(26,122,74,.3)}
+.save-btn.primary:hover{background:#158040}
+.save-btn.primary:disabled{background:#ccc;color:#999;box-shadow:none;cursor:default}
+.save-btn.secondary{background:var(--s2);color:var(--t2);border:1px solid var(--bd)}
+.save-btn.secondary:hover{background:#e8e4da}
+.save-status{font-size:11px;color:var(--t3);margin-left:auto}
+.save-status.saved{color:#1a7a4a}
+.save-status.unsaved{color:#a07830}
+.editing-badge{display:inline-block;font-size:9px;letter-spacing:1px;padding:2px 8px;border-radius:10px;background:#faf0dd;color:#a07830;font-weight:600;margin-left:8px}
+
 .nta{width:100%;min-height:90px;padding:12px;background:var(--s2);border:1px solid var(--bd);border-radius:10px;color:#555;font-size:13px;resize:vertical;line-height:1.6;font-family:'DM Sans',sans-serif}.nta:focus{outline:none;border-color:#aaa}
 
 @media(max-width:480px){.hstats{gap:10px}.sgrid{grid-template-columns:1fr 1fr}.wx-days{gap:4px}.wx-day{min-width:62px;padding:6px}}
@@ -353,26 +366,44 @@ console.log('✅ Synced from Supabase');
 }catch(e){console.log('⚠️ Offline mode — using localStorage');}
 }
 
+let dirty={jupiter:false,bears:false,medalist:false};
+
 function save(){
 localStorage.setItem('jgw3',JSON.stringify({data:D,hdcp}));
-if(!syncing)syncToSupabase();
+// Don't auto-sync to Supabase — wait for explicit save
 }
 
-async function syncToSupabase(){
-syncing=true;
+function markDirty(k){
+dirty[k]=true;
+const el=document.getElementById(k+'-save-status');
+if(el){el.textContent='● Unsaved changes';el.className='save-status unsaved';}
+const btn=document.getElementById(k+'-save-btn');
+if(btn)btn.disabled=false;
+}
+
+async function saveRound(k){
+const btn=document.getElementById(k+'-save-btn');
+const el=document.getElementById(k+'-save-status');
+if(btn)btn.disabled=true;
+if(el){el.textContent='Saving...';el.className='save-status';}
 try{
-for(const k of Object.keys(C)){
 await sb.from('golf_scores').update({
 scores:D[k].scores,
 notes:D[k].notes,
 handicap:hdcp,
 updated_at:new Date().toISOString()
 }).eq('course',k);
+dirty[k]=false;
+if(el){el.textContent='✓ Saved';el.className='save-status saved';}
+console.log('✅ Saved '+k+' to Supabase');
+setTimeout(()=>{if(!dirty[k]&&el)el.textContent='';},3000);
+}catch(e){
+if(el){el.textContent='⚠ Save failed — try again';el.className='save-status unsaved';}
+if(btn)btn.disabled=false;
 }
-console.log('✅ Saved to Supabase');
-}catch(e){console.log('⚠️ Save failed — cached locally');}
-syncing=false;
 }
+
+
 function setHdcp(v){hdcp=parseFloat(v)||0;save();renderLanding()}
 function courseHdcp(slope){return Math.round(hdcp*(slope/113))}
 function netScore(gross,slope,holeH){
@@ -633,6 +664,11 @@ return `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
 <div class="stit" style="margin:0;color:${c.accent}">SCORECARD — ${dayLabels[k]}</div>
 </div>
+<div class="save-bar">
+<button class="save-btn primary" id="${k}-save-btn" onclick="saveRound('${k}')" disabled>💾 Save Round</button>
+<button class="save-btn secondary" onclick="clearRound('${k}')">↺ Reset</button>
+<span class="save-status" id="${k}-save-status"></span>
+</div>
 <div id="${k}-mini">${rMini(k)}</div>
 </div>
 <div class="score-section">
@@ -656,10 +692,18 @@ ${hdcp?`<div class="sr-net" style="color:${ns?'#1a7a4a':'var(--t3)'}">${ns||'–
 </div>
 <div id="${k}-perf">${rPerf(k)}</div>
 <div class="sec" style="margin-top:12px"><div class="stit">ROUND NOTES</div>
-<textarea class="nta" placeholder="Memorable shots, course impressions, key takeaways..." onchange="D['${k}'].notes=this.value;save()">${d.notes}</textarea></div>`;
+<textarea class="nta" placeholder="Memorable shots, course impressions, key takeaways..." onchange="D['${k}'].notes=this.value;save();markDirty('${k}')">${d.notes}</textarea></div>`;
 }
-function setSc(k,i,v){D[k].scores[i]=Math.max(0,Math.min(15,parseInt(v)||0));save();rfSc(k)}
-function adj(k,i,d2){const c=C[k],h=c.holes[i],cur=D[k].scores[i]||(h.p);D[k].scores[i]=Math.max(1,Math.min(15,cur+d2));document.getElementById('si-'+k+'-'+i).value=D[k].scores[i];save();rfSc(k)}
+function setSc(k,i,v){D[k].scores[i]=Math.max(0,Math.min(15,parseInt(v)||0));save();markDirty(k);rfSc(k)}
+function adj(k,i,d2){const c=C[k],h=c.holes[i],cur=D[k].scores[i]||(h.p);D[k].scores[i]=Math.max(1,Math.min(15,cur+d2));document.getElementById('si-'+k+'-'+i).value=D[k].scores[i];save();markDirty(k);rfSc(k)}
+async function clearRound(k){
+if(!confirm('Reset all scores for this round?'))return;
+D[k].scores=Array(18).fill(0);D[k].notes='';
+save();markDirty(k);
+const pg=document.getElementById('club-page');
+if(pg.classList.contains('active'))renderClub(k);
+}
+
 function rfSc(k){document.getElementById(k+'-mini').innerHTML=rMini(k);document.getElementById(k+'-perf').innerHTML=rPerf(k)}
 
 function rWeather(k){
