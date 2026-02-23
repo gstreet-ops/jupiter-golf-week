@@ -588,6 +588,16 @@ document.getElementById('landing').classList.add('active');
 renderLanding();window.scrollTo(0,0);
 }
 
+function showWx(k){
+if(!k)return;
+showClub(k);
+// Switch to weather tab after render
+setTimeout(()=>{
+const btn=document.querySelector('#'+k+'-tnav button:last-child');
+if(btn)btn.click();
+},50);
+}
+
 function renderClub(k){
 const c=C[k],d=D[k],ch=hdcp?courseHdcp(c.slope):null;
 const wx=WX[SCHED[k]];
@@ -607,10 +617,10 @@ pg.innerHTML=`
 <div class="hs"><div class="hsl">RATING</div><div class="hsv">${c.rating}</div></div>
 ${ch?`<div class="hs"><div class="hsl">COURSE HDCP</div><div class="hsv" style="color:#4ade80">${ch}</div></div>`:''}
 </div></div></div></div>
-<div class="wx-inline">
+<div class="wx-inline" style="cursor:pointer" onclick="const btn=document.querySelector('#${k}-tnav button:last-child');if(btn)btn.click();" title="Tap for hourly forecast">
 <div class="wxi-icon">${wx.icon}</div>
 <div><div class="wxi-temp">${wx.high}°<span style="font-size:14px;color:var(--t3);font-weight:400">/${wx.low}°F</span></div><div class="wxi-cond">${wx.cond}</div></div>
-<div class="wxi-detail">Wind: ${wx.wind} · Rain: ${wx.rain}%</div>
+<div class="wxi-detail">Wind: ${wx.wind} · Rain: ${wx.rain}% · <span style="color:${c.accent}">Tap for hourly →</span></div>
 </div>
 <div class="tnav" id="${k}-tnav">
 <button class="active" onclick="stab('${k}','overview',this)">📋 Overview</button>
