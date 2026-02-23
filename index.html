@@ -93,11 +93,7 @@ input[type=number]{-moz-appearance:textfield}
 .feat li{font-size:12px;color:#666;padding:4px 0;display:flex;gap:8px;align-items:flex-start;line-height:1.5;list-style:none}
 .fdot{font-size:8px;margin-top:5px;flex-shrink:0}
 
-/* Map Buttons */
-.map-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.map-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;background:var(--s1);border:1px solid var(--bd);color:var(--t2);font-size:12px;font-weight:600;text-decoration:none;transition:all .2s;letter-spacing:.3px;box-shadow:var(--shadow)}
-.map-btn:hover,.map-btn:active{background:var(--s2);border-color:#bbb;color:var(--t)}
-.map-btn .mi{font-size:16px}
+
 
 /* Holes */
 .hole-detail{background:var(--s1);border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:8px;box-shadow:var(--shadow)}
@@ -159,6 +155,7 @@ input[type=number]{-moz-appearance:textfield}
 
 @media(max-width:480px){.hstats{gap:10px}.sgrid{grid-template-columns:1fr 1fr}.wx-days{gap:4px}.wx-day{min-width:62px;padding:6px}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 <div id="landing" class="page active">
@@ -325,15 +322,57 @@ holes:[
 {n:18,p:4,t:450,g:430,b:405,w:380,r:335,h:18,tip:"Grand finishing hole from The Match. Three fairway bunkers right, pond guards the green left. Make par and walk off proud."}
 ]}
 };
-let D={},hdcp=0;
-function init(){
+const SB_URL='https://lzaznxdkpgahvqqjvggd.supabase.co';
+const SB_KEY='sb_publishable_0fnuJyUCI5Wwc_A9Lop9Ww_pvukgZdL';
+const sb=window.supabase.createClient(SB_URL,SB_KEY);
+let D={},hdcp=0,syncing=false;
+
+async function init(){
+// Load from localStorage first for instant render
 const s=localStorage.getItem('jgw3');
 if(s)try{const p=JSON.parse(s);D=p.data||{};hdcp=p.hdcp||0}catch(e){}
 Object.keys(C).forEach(k=>{if(!D[k])D[k]={scores:Array(18).fill(0),notes:''}});
 document.getElementById('hdcp-input').value=hdcp||'';
 renderWx();renderLanding();
+// Then sync from Supabase
+try{
+const{data,error}=await sb.from('golf_scores').select('*');
+if(data&&data.length){
+data.forEach(row=>{
+if(D[row.course]){
+D[row.course].scores=row.scores||Array(18).fill(0);
+D[row.course].notes=row.notes||'';
 }
-function save(){localStorage.setItem('jgw3',JSON.stringify({data:D,hdcp}))}
+if(row.handicap)hdcp=parseFloat(row.handicap)||0;
+});
+document.getElementById('hdcp-input').value=hdcp||'';
+localStorage.setItem('jgw3',JSON.stringify({data:D,hdcp}));
+renderLanding();
+console.log('✅ Synced from Supabase');
+}
+}catch(e){console.log('⚠️ Offline mode — using localStorage');}
+}
+
+function save(){
+localStorage.setItem('jgw3',JSON.stringify({data:D,hdcp}));
+if(!syncing)syncToSupabase();
+}
+
+async function syncToSupabase(){
+syncing=true;
+try{
+for(const k of Object.keys(C)){
+await sb.from('golf_scores').update({
+scores:D[k].scores,
+notes:D[k].notes,
+handicap:hdcp,
+updated_at:new Date().toISOString()
+}).eq('course',k);
+}
+console.log('✅ Saved to Supabase');
+}catch(e){console.log('⚠️ Save failed — cached locally');}
+syncing=false;
+}
 function setHdcp(v){hdcp=parseFloat(v)||0;save();renderLanding()}
 function courseHdcp(slope){return Math.round(hdcp*(slope/113))}
 function netScore(gross,slope,holeH){
@@ -454,13 +493,7 @@ document.getElementById(k+'-'+t).classList.add('active');
 
 function rOverview(k){
 const c=C[k];
-const [lat,lng]=c.mapCenter.split(',');
 return `
-<div class="map-btns">
-<a class="map-btn" href="https://www.google.com/maps/@${lat},${lng},${c.mapZoom}z/data=!3m1!1e1" target="_blank"><span class="mi">🛰️</span> Google Maps Satellite</a>
-<a class="map-btn" href="https://maps.apple.com/?ll=${lat},${lng}&z=${c.mapZoom}&t=k" target="_blank"><span class="mi">🍎</span> Apple Maps</a>
-<a class="map-btn" href="https://earth.google.com/web/@${lat},${lng},5a,2000d,35y,0h,45t,0r" target="_blank"><span class="mi">🌍</span> Google Earth 3D</a>
-</div>
 <div class="sec"><div class="stit">About</div><p>${c.desc}</p></div>
 <div class="sec"><div class="stit">History & Heritage</div><p>${c.history}</p></div>
 <div class="sec"><div class="stit">Course Character</div><p>${c.character}</p></div>
