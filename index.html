@@ -195,7 +195,6 @@ input[type=number]{-moz-appearance:textfield}
 
 @media(max-width:480px){.hstats{gap:10px}.sgrid{grid-template-columns:1fr 1fr}.wx-days{gap:4px}.wx-day{min-width:62px;padding:6px}}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 <div id="landing" class="page active">
@@ -441,9 +440,10 @@ holes:[
 {n:18,p:4,t:450,g:430,b:405,w:380,r:335,h:18,tip:"Grand finishing hole from The Match. Three fairway bunkers right, pond guards the green left. Make par and walk off proud."}
 ]}
 };
-const SB_URL='https://lzaznxdkpgahvqqjvggd.supabase.co';
-const SB_KEY='sb_publishable_0fnuJyUCI5Wwc_A9Lop9Ww_pvukgZdL';
-const sb=window.supabase.createClient(SB_URL,SB_KEY);
+// Neon Data API (project icy-dawn-94906269) via neon-js with anonymous auth
+const NEON_AUTH_URL='https://ep-withered-night-b76axl4q.neonauth.c-13.us-east-1.aws.neon.tech/neondb/auth';
+const NEON_DATA_URL='https://ep-withered-night-b76axl4q.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1';
+const sbReady=import('https://esm.sh/@neondatabase/neon-js@0.7.0-beta').then(m=>m.createClient({auth:{url:NEON_AUTH_URL,allowAnonymous:true},dataApi:{url:NEON_DATA_URL}}));
 let D={},hdcp=0,syncing=false;
 
 async function init(){
@@ -455,8 +455,9 @@ document.getElementById('hdcp-input').value=hdcp||'';
 renderWx();renderLanding();
 // Fetch live weather
 fetchWeather();
-// Then sync from Supabase
+// Then sync from Neon
 try{
+const sb=await sbReady;
 const{data,error}=await sb.from('golf_scores').select('*');
 if(data&&data.length){
 data.forEach(row=>{
@@ -469,7 +470,7 @@ if(row.handicap)hdcp=parseFloat(row.handicap)||0;
 document.getElementById('hdcp-input').value=hdcp||'';
 localStorage.setItem('jgw3',JSON.stringify({data:D,hdcp}));
 renderLanding();
-console.log('✅ Synced from Supabase');
+console.log('✅ Synced from Neon');
 }
 }catch(e){console.log('⚠️ Offline mode — using localStorage');}
 }
@@ -478,7 +479,7 @@ let dirty={jupiter:false,bears:false,medalist:false};
 
 function save(){
 localStorage.setItem('jgw3',JSON.stringify({data:D,hdcp}));
-// Don't auto-sync to Supabase — wait for explicit save
+// Don't auto-sync to Neon — wait for explicit save
 }
 
 function markDirty(k){
@@ -495,15 +496,17 @@ const el=document.getElementById(k+'-save-status');
 if(btn)btn.disabled=true;
 if(el){el.textContent='Saving...';el.className='save-status';}
 try{
-await sb.from('golf_scores').update({
+const sb=await sbReady;
+const{error}=await sb.from('golf_scores').update({
 scores:D[k].scores,
 notes:D[k].notes,
 handicap:hdcp,
 updated_at:new Date().toISOString()
 }).eq('course',k);
+if(error)throw error;
 dirty[k]=false;
 if(el){el.textContent='✓ Saved';el.className='save-status saved';}
-console.log('✅ Saved '+k+' to Supabase');
+console.log('✅ Saved '+k+' to Neon');
 setTimeout(()=>{if(!dirty[k]&&el)el.textContent='';},3000);
 }catch(e){
 if(el){el.textContent='⚠ Save failed — try again';el.className='save-status unsaved';}
